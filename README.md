@@ -3,7 +3,7 @@ TP Computer Vision ESIEE-IT E5
 
 ## Mise en place de l’environnement de code
 
-XI. A quelle fonction la distribution de noise fait penser ?
+XI. A quelle fonction la distribution de noise fait penser ?  
 La distribution de noise fait penser à une fonction gaussienne.
 
 ## Données
