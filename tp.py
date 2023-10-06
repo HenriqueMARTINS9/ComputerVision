@@ -2,8 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as img
 import cv2
+import os
+from PIL import Image
 
-#Numpy
+#Mise en place de l’environnement de code
+
+##Numpy
 
 np.random.seed(42)
 
@@ -33,7 +37,7 @@ noise = 0.1 * np.random.randn(1000)
 y = np.sin(X) + noise
 
 
-#Matplotlib
+##Matplotlib
 
 plt.figure(figsize=(8,6))
 plt.scatter(X, y)
@@ -48,3 +52,38 @@ plt.xlabel('Valeur du bruit')
 plt.ylabel('Fréquence')
 plt.title('Distribution du bruit gaussien')
 plt.show()
+
+#Données
+
+dossier_bike = "data/bike"
+nombre_fichier_bikes = len(os.listdir(dossier_bike))
+print(f"Nombre de fichiers dans le dossier bike: {nombre_fichier_bikes}")
+
+dossier_car = "data/car"
+nombre_fichier_cars = len(os.listdir(dossier_car))
+print(f"Nombre de fichiers dans le dossier car: {nombre_fichier_cars}")
+
+print(f"Nombre de fichiers total: {nombre_fichier_bikes + nombre_fichier_cars}")
+
+
+for nom_fichier in os.listdir(dossier_bike):
+    chemin_complet = os.path.join(dossier_bike, nom_fichier)
+    with Image.open(chemin_complet) as img:
+        largeur, hauteur = img.size
+        format_image = img.format
+        
+        print(f"Fichier : {nom_fichier}")
+        print(f"Format : {format_image}")
+        print(f"Dimensions : {largeur}x{hauteur}")
+        print("-----")
+                
+for nom_fichier in os.listdir(dossier_car):
+    chemin_complet = os.path.join(dossier_car, nom_fichier)
+    with Image.open(chemin_complet) as img:
+        largeur, hauteur = img.size
+        format_image = img.format
+        
+        print(f"Fichier : {nom_fichier}")
+        print(f"Format : {format_image}")
+        print(f"Dimensions : {largeur}x{hauteur}")
+        print("-----")
