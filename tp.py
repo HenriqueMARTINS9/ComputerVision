@@ -5,6 +5,14 @@ import cv2
 import os
 from PIL import Image
 from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score, recall_score, roc_curve, auc
+from sklearn.model_selection import GridSearchCV
+
+
 
 #Mise en place de l’environnement de code
 
@@ -135,3 +143,160 @@ images = np.array([image.flatten() for image in images_array])
 
 X_train, X_test, y_train, y_test = train_test_split(images, labels_array, test_size=0.2, random_state=0)
 
+##Modèles de classification
+clf = DecisionTreeClassifier(random_state=0)
+
+X_train_reshaped = X_train.reshape(X_train.shape[0], -1)
+X_test_reshaped = X_test.reshape(X_test.shape[0], -1)
+
+clf.fit(X_train_reshaped, y_train)
+
+predicted_label = clf.predict(X_test_reshaped[0].reshape(1, -1))
+print(f"Prédiction du label pour la première image du set de test : {predicted_label[0]}")
+
+
+clf_svm = SVC(random_state=0)
+
+X_train_reshaped = X_train.reshape(X_train.shape[0], -1)
+X_test_reshaped = X_test.reshape(X_test.shape[0], -1)
+
+clf_svm.fit(X_train_reshaped, y_train)
+
+predicted_label_svm = clf_svm.predict(X_test_reshaped[0].reshape(1, -1))
+
+print(f"Prédiction du label par SVM pour la première image du set de test : {predicted_label_svm[0]}")
+
+y_pred_tree = clf.predict(X_test_reshaped)
+accuracy_tree = accuracy_score(y_test, y_pred_tree)
+print(f"Accuracy du modèle Arbre de décision : {accuracy_tree:.2f}")
+
+y_pred_svm = clf_svm.predict(X_test_reshaped)
+accuracy_svm = accuracy_score(y_test, y_pred_svm)
+print(f"Accuracy du modèle SVM : {accuracy_svm:.2f}")
+
+conf_matrix_tree = confusion_matrix(y_test, y_pred_tree)
+print(conf_matrix_tree)
+
+print(f"Nombre de 'bike' classifiés comme 'car' : {conf_matrix_tree[1][0]}")
+print(f"Nombre de 'car' classifiés comme 'bike' : {conf_matrix_tree[0][1]}")
+
+conf_matrix_svm = confusion_matrix(y_test, y_pred_svm)
+print(conf_matrix_svm)
+
+precision_tree = precision_score(y_test, y_pred_tree, pos_label='bike')
+recall_tree = recall_score(y_test, y_pred_tree, pos_label='bike')
+
+print(f"Précision du modèle Arbre de décision : {precision_tree:.2f}")
+print(f"Spécificité (Recall) du modèle Arbre de décision : {recall_tree:.2f}")
+
+y_probs_tree = clf.predict_proba(X_test_reshaped)[:, 1] 
+
+fpr, tpr, thresholds = roc_curve(y_test, y_probs_tree, pos_label='bike')
+roc_auc = auc(fpr, tpr)
+
+plt.figure()
+plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC) Curve')
+plt.legend(loc="lower right")
+plt.show()
+
+## Comparaison de pipeline et fine tuning
+
+depth = clf.get_depth()
+print(f"Profondeur de l'arbre de décision : {depth}")
+
+max_depth_list = list(range(1, 13))
+
+train_accuracy = []
+test_accuracy = []
+
+for depth in max_depth_list:
+    clf_temp = DecisionTreeClassifier(max_depth=depth, random_state=0)
+    clf_temp.fit(X_train_reshaped, y_train)
+    
+    train_accuracy.append(accuracy_score(y_train, clf_temp.predict(X_train_reshaped)))
+    test_accuracy.append(accuracy_score(y_test, clf_temp.predict(X_test_reshaped)))
+
+plt.figure(figsize=(10,6))
+plt.plot(max_depth_list, train_accuracy, label='Train Accuracy', marker='o')
+plt.plot(max_depth_list, test_accuracy, label='Test Accuracy', marker='o')
+plt.xlabel('Profondeur (max_depth)')
+plt.ylabel('Accuracy')
+plt.title('Accuracy en fonction de max_depth')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+param_grid = {
+    'kernel': ['linear', 'rbf', 'poly'],
+    'degree': [2, 3, 4, 5] 
+}
+
+grid_search = GridSearchCV(SVC(random_state=0), param_grid, cv=5)
+grid_search.fit(X_train_reshaped, y_train)
+
+print(f"Meilleurs hyperparamètres : {grid_search.best_params_}")
+print(f"Meilleure accuracy en validation croisée : {grid_search.best_score_:.2f}")
+
+val_bike_folder = "val/bike"
+val_car_folder = "val/car"
+
+val_bike_images, val_bike_labels = populate_images_and_labels_lists(val_bike_folder, "bike")
+val_car_images, val_car_labels = populate_images_and_labels_lists(val_car_folder, "car")
+
+all_val_images = val_bike_images + val_car_images
+all_val_labels = val_bike_labels + val_car_labels
+
+val_images = np.array(all_val_images)
+val_labels = np.array(all_val_labels)
+
+best_max_depth = 6
+
+clf_best = DecisionTreeClassifier(max_depth=best_max_depth, random_state=0)
+clf_best.fit(X_train_reshaped, y_train)
+
+val_images_reshaped = val_images.reshape(val_images.shape[0], -1)
+val_pred = clf_best.predict(val_images_reshaped)
+
+val_accuracy = accuracy_score(val_labels, val_pred)
+print(f"Accuracy de validation : {val_accuracy:.2f}")
+
+def populate_and_augment_images_and_labels_lists(image_folder_path, label):
+    images = []
+    labels = []
+    
+    for filename in os.listdir(image_folder_path):
+        image = cv2.imread(os.path.join(image_folder_path, filename))
+        
+        resized_image = cv2.resize(image, target_size)
+        
+        cropped_image = resized_image[48:162, 48:162]
+        cropped_image = cv2.resize(cropped_image, target_size)  
+        
+        grey_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
+        grey_image = cv2.cvtColor(grey_image, cv2.COLOR_GRAY2BGR)
+        
+        images.extend([resized_image, cropped_image, grey_image])
+        labels.extend([label, label, label])
+        
+    return images, labels
+
+augmented_bike_images, augmented_bike_labels = populate_and_augment_images_and_labels_lists(val_bike_folder, "bike")
+augmented_car_images, augmented_car_labels = populate_and_augment_images_and_labels_lists(val_car_folder, "car")
+
+all_augmented_images = augmented_bike_images + augmented_car_images
+all_augmented_labels = augmented_bike_labels + augmented_car_labels
+
+augmented_images_array = np.array(all_augmented_images)
+augmented_labels_array = np.array(all_augmented_labels)
+
+augmented_images_array_reshaped = augmented_images_array.reshape(augmented_images_array.shape[0], -1)
+
+clf_best.fit(augmented_images_array_reshaped, augmented_labels_array)
+
+val_pred_augmented = clf_best.predict(val_images_reshaped)
+val_accuracy_augmented = accuracy_score(val_labels, val_pred_augmented)
+print(f"Accuracy de validation après augmentation des données : {val_accuracy_augmented:.2f}")
